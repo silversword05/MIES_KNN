@@ -8,6 +8,7 @@ cont_feature = []
 cont_labels = []
 file_count = 0
 
+
 def double_click_count(time_list: List):
     if len(time_list) == 0:
         return 0, 0
@@ -22,201 +23,133 @@ def average_scroll_time(scroll_time_list):
     return np.average(scroll_time_list)
 
 
+def get_new_state():
+    state_dict = {'list': [], 'click': 0, 'right_click': 0, 'left_click': 0, 'time_last': 0.0, 'left_time_elapsed': 0.0, 'right_time_elapsed': 0.0,
+                  'scroll0_count': 0.0, 'scroll0_time': 0.0, 'scroll1_count': 0.0, 'scroll1_time': 0.0, 'scroll2_count': 0.0, 'scroll2_time': 0.0,
+                  'scroll0_time_list': [], 'scroll1_time_list': [], 'scroll2_time_list': [], 'right_click_time': [], 'left_click_time': [], 'x_cod': [], 'y_cod': [],
+                  'drag_x_cod': [], 'drag_y_cod': [], 'time': [], 'drag_time': [], 'speedX': [], 'speedY': [], 'accX': [], 'accY': []}
+    return state_dict
+
+
 # sad
-def feature_extractor(f, label, feature, labels, count):
-    file = open(f, 'r')
-    List = []
-    Time = 0
-    click = 0
-    right_click = 0
-    left_click = 0
-    # count=-12
+def feature_extractor(f_in, label, feature, labels, count):
+    file = open(f_in, 'r')
+    time_val = 0
     time_last = 0.0
-    total_time_elapsed = 0.0
-    left_time_elapsed = 0.0
-    right_time_elapsed = 0.0
-    scroll0_count = 0.0
-    scroll0_time = 0.0
-    scroll1_count = 0.0
-    scroll1_time = 0.0
-    scroll2_count = 0.0
-    scroll2_time = 0.0
-    scroll0_time_list = []
-    scroll1_time_list = []
-    scroll2_time_list = []
-    right_click_time = []
-    left_click_time = []
-    x_cod = []
-    y_cod = []
-    drag_x_cod = []
-    drag_y_cod = []
-    time = []
-    drag_time = []
-    speedX = []
-    speedY = []
-    accX = []
-    accY = []
+
+    state = get_new_state()
 
     for line in file.readlines():
         words = str(line).split(',')
         if count != 0 and count > 0:
             try:
-                Time += int(words[len(words) - 1])
+                time_val += int(words[len(words) - 1])
             except:
                 pass
-        # count+=1
         if words[0] == "MM":
-            x_cod.append(float(words[1]))
-            y_cod.append(float(words[2]))
-            time.append(float(words[3]))
+            state['x_cod'].append(float(words[1]))
+            state['y_cod'].append(float(words[2]))
+            state['time'].append(float(words[3]))
         if words[0] == "MD":
-            drag_x_cod.append(float(words[1]))
-            drag_y_cod.append(float(words[2]))
-            drag_time.append(float(words[3]))
+            state['drag_x_cod'].append(float(words[1]))
+            state['drag_y_cod'].append(float(words[2]))
+            state['drag_time'].append(float(words[3]))
         if words[0] == 'MP' or words[0] == 'MR' or words[0] == 'MC' or words[0] == 'MWM':
-            List.append(words)
+            state['list'].append(words)
         if words[0] == 'MC':
             if int(words[1]) == 1:
-                if List[len(List) - 2][0] == 'MR':
-                    left_click += 1
-                    left_time_elapsed += int(List[len(List) - 2][2])
-                    left_click_time.append(Time - int(List[len(List) - 2][2]))
+                if state['list'][len(state['list']) - 2][0] == 'MR':
+                    state['left_click'] += 1
+                    state['left_time_elapsed'] += int(state['list'][len(state['list']) - 2][2])
+                    state['left_click_time'].append(time_val - int(state['list'][len(state['list']) - 2][2]))
             else:
-                if List[len(List) - 2][0] == 'MR':
-                    right_click += 1
-                    right_time_elapsed += int(List[len(List) - 2][2])
-                    right_click_time.append(Time - int(List[len(List) - 2][2]))
-            click += 1
+                if state['list'][len(state['list']) - 2][0] == 'MR':
+                    state['right_click'] += 1
+                    state['right_time_elapsed'] += int(state['list'][len(state['list']) - 2][2])
+                    state['right_click_time'].append(time_val - int(state['list'][len(state['list']) - 2][2]))
+            state['click'] += 1
         if words[0] == 'MWM':
             if int(words[4]) == 0:
-                if scroll0_count == 0:
-                    scroll0_time += 0
-                    scroll0_count += 1
+                if state['scroll0_count'] == 0:
+                    state['scroll0_time'] += 0
+                    state['scroll0_count'] += 1
                 else:
-                    scroll0_time += int(words[6])
-                    scroll0_count += 1
+                    state['scroll0_time'] += int(words[6])
+                    state['scroll0_count'] += 1
             if int(words[4]) == 1:
-                if scroll1_count == 0:
-                    scroll1_time += 0
-                    scroll1_count += 1
+                if state['scroll1_count'] == 0:
+                    state['scroll1_time'] += 0
+                    state['scroll1_count'] += 1
                 else:
-                    scroll1_time += int(words[6])
-                    scroll1_count += 1
+                    state['scroll1_time'] += int(words[6])
+                    state['scroll1_count'] += 1
             if int(words[4]) == -1:
-                if scroll2_count == 0:
-                    scroll2_time += 0
-                    scroll2_count += 1
+                if state['scroll2_count'] == 0:
+                    state['scroll2_time'] += 0
+                    state['scroll2_count'] += 1
                 else:
-                    scroll2_time += int(words[6])
-                    scroll2_count += 1
+                    state['scroll2_time'] += int(words[6])
+                    state['scroll2_count'] += 1
         else:
-            scroll0_time_list.append(scroll0_time)
-            scroll1_time_list.append(scroll1_time)
-            scroll2_time_list.append(scroll2_time)
-            scroll0_count = 0.0
-            scroll0_time = 0.0
-            scroll1_count = 0.0
-            scroll1_time = 0.0
-            scroll2_count = 0.0
-            scroll2_time = 0.0
+            state['scroll0_time_list'].append(state['scroll0_time'])
+            state['scroll1_time_list'].append(state['scroll1_time'])
+            state['scroll2_time_list'].append(state['scroll2_time'])
+            state['scroll0_count'] = 0.0
+            state['scroll0_time'] = 0.0
+            state['scroll1_count'] = 0.0
+            state['scroll1_time'] = 0.0
+            state['scroll2_count'] = 0.0
+            state['scroll2_time'] = 0.0
         if count % 30 == 0 and count != 0 and count > 0:
-            TIME = Time - time_last
-            right_click_frequency = right_click / TIME
-            left_click_frequency = left_click / TIME
+            time_diff = time_val - time_last
+            right_click_frequency = state['right_click'] / time_diff
+            left_click_frequency = state['left_click'] / time_diff
             try:
-                right_time_elapsed = right_time_elapsed / right_click
+                state['right_time_elapsed'] = state['right_time_elapsed'] / state['right_click']
             except:
-                right_time_elapsed = 0
+                state['right_time_elapsed'] = 0
             try:
-                left_time_elapsed = left_time_elapsed / left_click
+                state['left_time_elapsed'] = state['left_time_elapsed'] / state['left_click']
             except:
-                left_time_elapsed = 0
-            Click = click
-            left_single_click, left_double_click = double_click_count(left_click_time)
-            right_single_click, right_double_click = double_click_count(right_click_time)
-            # print len(time)
-            # time[0]=0
-            if len(time) > 0:
-                time[0] = 0
-                for index in range(len(x_cod) - 1):
-                    if (time[index + 1] != 0):
-                        speedX.append((x_cod[index + 1] - x_cod[index]) / time[index + 1])
+                state['left_time_elapsed'] = 0
+            left_single_click, left_double_click = double_click_count(state['left_click_time'])
+            right_single_click, right_double_click = double_click_count(state['right_click_time'])
+            if len(state['time']) > 0:
+                state['time'][0] = 0
+                for index in range(len(state['x_cod']) - 1):
+                    if state['time'][index + 1] != 0:
+                        state['speedX'].append((state['x_cod'][index + 1] - state['x_cod'][index]) / state['time'][index + 1])
 
-                for index in range(len(y_cod) - 1):
-                    if (time[index + 1] != 0):
-                        speedY.append((x_cod[index + 1] - x_cod[index]) / time[index + 1])
+                for index in range(len(state['y_cod']) - 1):
+                    if state['time'][index + 1] != 0:
+                        state['speedY'].append((state['x_cod'][index + 1] - state['x_cod'][index]) / state['time'][index + 1])
 
-                for index in range(len(speedX) - 1):
-                    if (time[index + 1] != 0):
-                        accX.append((speedX[index + 1] - speedX[index]) / time[index + 1])
+                for index in range(len(state['speedX']) - 1):
+                    if state['time'][index + 1] != 0:
+                        state['accX'].append((state['speedX'][index + 1] - state['speedX'][index]) / state['time'][index + 1])
 
-                for index in range(len(speedY) - 1):
-                    if (time[index + 1] != 0):
-                        accY.append((speedY[index + 1] - speedY[index]) / time[index + 1])
+                for index in range(len(state['speedY']) - 1):
+                    if state['time'][index + 1] != 0:
+                        state['accY'].append((state['speedY'][index + 1] - state['speedY'][index]) / state['time'][index + 1])
 
-            SpeedX_avg = average_scroll_time(speedX)
-            SpeedY_avg = average_scroll_time(speedY)
-            AccX_avg = average_scroll_time(accX)
-            AccY_avg = average_scroll_time(accY)
+            speed_x_avg = average_scroll_time(state['speedX'])
+            speed_y_avg = average_scroll_time(state['speedY'])
+            acc_x_avg = average_scroll_time(state['accX'])
+            acc_y_avg = average_scroll_time(state['accY'])
 
-            drag_SpeedX_avg = average_scroll_time(speedX)
-            drag_SpeedY_avg = average_scroll_time(speedY)
-            drag_AccX_avg = average_scroll_time(accX)
-            drag_AccY_avg = average_scroll_time(accY)
-            node = []
-            node.append(TIME)
-            node.append(click)
-            node.append(right_click_frequency)
-            node.append(right_time_elapsed)
-            node.append(right_single_click)
-            node.append(right_double_click)
-            node.append(left_click_frequency)
-            node.append(left_time_elapsed)
-            node.append(left_single_click)
-            node.append(left_double_click)
-            node.append(average_scroll_time(scroll0_time_list))
-            node.append(average_scroll_time(scroll1_time_list))
-            node.append(average_scroll_time(scroll2_time_list))
-            node.append(SpeedX_avg)
-            node.append(SpeedY_avg)
-            node.append(AccX_avg)
-            node.append(AccY_avg)
-            node.append(drag_SpeedX_avg)
-            node.append(drag_SpeedY_avg)
-            node.append(drag_AccX_avg)
-            node.append(drag_AccY_avg)
-            feature.append(node)
+            drag_speed_x_avg = average_scroll_time(state['speedX'])
+            drag_speed_y_avg = average_scroll_time(state['speedY'])
+            drag_acc_x_avg = average_scroll_time(state['accX'])
+            drag_acc_y_avg = average_scroll_time(state['accY'])
+            feature.append([time_diff, state['click'], time_diff, state['click'], right_click_frequency, state['right_time_elapsed'], right_single_click, right_double_click,
+                            left_click_frequency, state['left_time_elapsed'], left_single_click, left_double_click, average_scroll_time(state['scroll0_time_list']),
+                            average_scroll_time(state['scroll1_time_list']), average_scroll_time(state['scroll2_time_list']), speed_x_avg, speed_y_avg, acc_x_avg, acc_y_avg,
+                            drag_speed_x_avg, drag_speed_y_avg, drag_acc_x_avg, drag_acc_y_avg])
             labels.append(label)
-            right_click_time = []
-            left_click_time = []
-            List = []
-            click = 0
-            right_click = 0
-            left_click = 0
+
+            state = get_new_state()
             count = 0
-            time_last = Time
-            total_time_elapsed = 0.0
-            left_time_elapsed = 0.0
-            right_time_elapsed = 0.0
-            scroll0_time_list = []
-            scroll1_time_list = []
-            scroll2_time_list = []
-            scroll0_count = 0.0
-            scroll0_time = 0.0
-            scroll1_count = 0.0
-            scroll1_time = 0.0
-            scroll2_count = 0.0
-            scroll2_time = 0.0
-            x_cod = []
-            y_cod = []
-            drag_x_cod = []
-            drag_y_cod = []
-            time = []
-            drag_time = []
-            speedX = []
-            speedY = []
-            accX = []
-            accY = []
+            time_last = time_val
         count += 1
 
 
@@ -225,9 +158,6 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.model_selection import cross_val_score
 from sklearn.metrics import confusion_matrix, accuracy_score
 
-# sad_files=glob.glob(PATH + '/Emotional/Sad/*.txt')
-# contusers = ["data/14EC32010/MouseLogDir", "data/15EC10020/MouseLogDir", "data/15EC10031/MouseLogDir","data/15EC10037/MouseLogDir", "data/15EC10051/MouseLogDir","data/Praneeth/MouseLogDir","data/Mohith/MouseLogDir",]
-# users = ["data/14EC32010", "data/15EC10020", "data/15EC10031","data/15EC10037", "data/15EC10051", "data/Praneeth", "data/Mohith"]
 users = ["data/17EC35025"]
 contusers = ["data/17EC35025"]
 for user, contuser in zip(users, contusers):
