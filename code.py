@@ -1,8 +1,13 @@
 import glob
 from typing import List
 import numpy as np
+from sklearn.preprocessing import StandardScaler
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.model_selection import cross_val_score
+from sklearn.metrics import confusion_matrix, accuracy_score
 
 feature = []
+target_names = ['sad', 'neutral', 'happy']
 labels = []
 cont_feature = []
 cont_labels = []
@@ -31,8 +36,7 @@ def get_new_state():
     return state_dict
 
 
-# sad
-def feature_extractor(f_in, label, feature, labels, count):
+def feature_extractor(f_in, label, feature_function, labels_function, count):
     file = open(f_in, 'r')
     time_val = 0
     time_last = 0.0
@@ -50,102 +54,73 @@ def feature_extractor(f_in, label, feature, labels, count):
             state['x_cod'].append(float(words[1]))
             state['y_cod'].append(float(words[2]))
             state['time'].append(float(words[3]))
-        if words[0] == "MD":
+        elif words[0] == "MD":
             state['drag_x_cod'].append(float(words[1]))
             state['drag_y_cod'].append(float(words[2]))
             state['drag_time'].append(float(words[3]))
-        if words[0] == 'MP' or words[0] == 'MR' or words[0] == 'MC' or words[0] == 'MWM':
+        elif words[0] == 'MP' or words[0] == 'MR' or words[0] == 'MC' or words[0] == 'MWM':
             state['list'].append(words)
-        if words[0] == 'MC':
-            if int(words[1]) == 1:
-                if state['list'][len(state['list']) - 2][0] == 'MR':
-                    state['left_click'] += 1
-                    state['left_time_elapsed'] += int(state['list'][len(state['list']) - 2][2])
-                    state['left_click_time'].append(time_val - int(state['list'][len(state['list']) - 2][2]))
-            else:
-                if state['list'][len(state['list']) - 2][0] == 'MR':
-                    state['right_click'] += 1
-                    state['right_time_elapsed'] += int(state['list'][len(state['list']) - 2][2])
-                    state['right_click_time'].append(time_val - int(state['list'][len(state['list']) - 2][2]))
+        elif words[0] == 'MC':
+            if state['list'][len(state['list']) - 2][0] == 'MR':
+                state['left_click'] += 1 if int(words[1]) == 1 else 0
+                state['left_time_elapsed'] += int(state['list'][len(state['list']) - 2][2]) if int(words[1]) == 1 else 0
+                state['left_click_time'].append(time_val - int(state['list'][len(state['list']) - 2][2])) if int(words[1]) == 1 else 0
+                state['right_click'] += 1 if not int(words[1]) == 1 else 0
+                state['right_time_elapsed'] += int(state['list'][len(state['list']) - 2][2]) if not int(words[1]) == 1 else 0
+                state['right_click_time'].append(time_val - int(state['list'][len(state['list']) - 2][2])) if not int(words[1]) == 1 else 0
             state['click'] += 1
-        if words[0] == 'MWM':
+        elif words[0] == 'MWM':
+            def assign_scroll_count(param_count, param_time):
+                if state[param_count] == 0:
+                    state[param_time] += 0
+                    state[param_count] += 1
+                else:
+                    state[param_time] += int(words[6])
+                    state[param_count] += 1
+
             if int(words[4]) == 0:
-                if state['scroll0_count'] == 0:
-                    state['scroll0_time'] += 0
-                    state['scroll0_count'] += 1
-                else:
-                    state['scroll0_time'] += int(words[6])
-                    state['scroll0_count'] += 1
-            if int(words[4]) == 1:
-                if state['scroll1_count'] == 0:
-                    state['scroll1_time'] += 0
-                    state['scroll1_count'] += 1
-                else:
-                    state['scroll1_time'] += int(words[6])
-                    state['scroll1_count'] += 1
-            if int(words[4]) == -1:
-                if state['scroll2_count'] == 0:
-                    state['scroll2_time'] += 0
-                    state['scroll2_count'] += 1
-                else:
-                    state['scroll2_time'] += int(words[6])
-                    state['scroll2_count'] += 1
+                assign_scroll_count('scroll0_count', 'scroll0_time')
+            elif int(words[4]) == 1:
+                assign_scroll_count('scroll1_count', 'scroll1_time')
+            elif int(words[4]) == -1:
+                assign_scroll_count('scroll2_count', 'scroll2_time')
         else:
             state['scroll0_time_list'].append(state['scroll0_time'])
             state['scroll1_time_list'].append(state['scroll1_time'])
             state['scroll2_time_list'].append(state['scroll2_time'])
-            state['scroll0_count'] = 0.0
-            state['scroll0_time'] = 0.0
-            state['scroll1_count'] = 0.0
-            state['scroll1_time'] = 0.0
-            state['scroll2_count'] = 0.0
-            state['scroll2_time'] = 0.0
+            state['scroll0_count'] = state['scroll0_time'] = state['scroll1_count'] = state['scroll1_time'] = state['scroll2_count'] = state['scroll2_time'] = 0.0
+
         if count % 30 == 0 and count != 0 and count > 0:
             time_diff = time_val - time_last
             right_click_frequency = state['right_click'] / time_diff
             left_click_frequency = state['left_click'] / time_diff
-            try:
-                state['right_time_elapsed'] = state['right_time_elapsed'] / state['right_click']
-            except:
-                state['right_time_elapsed'] = 0
-            try:
-                state['left_time_elapsed'] = state['left_time_elapsed'] / state['left_click']
-            except:
-                state['left_time_elapsed'] = 0
+            state['right_time_elapsed'] = 0 if state['right_click'] == 0 else state['right_time_elapsed'] / state['right_click']
+            state['left_time_elapsed'] = 0 if state['left_click'] == 0 else state['left_time_elapsed'] / state['left_click']
             left_single_click, left_double_click = double_click_count(state['left_click_time'])
             right_single_click, right_double_click = double_click_count(state['right_click_time'])
+
+            def calculate_differential(key, index_func):
+                return (state[key][index_func + 1] - state[key][index_func]) / state['time'][index_func + 1]
+
             if len(state['time']) > 0:
                 state['time'][0] = 0
-                for index in range(len(state['x_cod']) - 1):
-                    if state['time'][index + 1] != 0:
-                        state['speedX'].append((state['x_cod'][index + 1] - state['x_cod'][index]) / state['time'][index + 1])
+                state['speedX'].extend([calculate_differential('x_cod', index) for index in range(len(state['x_cod']) - 1) if state['time'][index + 1] != 0])
+                state['speedY'].extend([calculate_differential('y_cod', index) for index in range(len(state['y_cod']) - 1) if state['time'][index + 1] != 0])
+                state['accX'].extend([calculate_differential('speedX', index) for index in range(len(state['speedX']) - 1) if state['time'][index + 1] != 0])
+                state['accY'].extend([calculate_differential('speedY', index) for index in range(len(state['speedY']) - 1) if state['time'][index + 1] != 0])
 
-                for index in range(len(state['y_cod']) - 1):
-                    if state['time'][index + 1] != 0:
-                        state['speedY'].append((state['x_cod'][index + 1] - state['x_cod'][index]) / state['time'][index + 1])
+            speed_x_avg, speed_y_avg, acc_x_avg, acc_y_avg = average_scroll_time(state['speedX']), average_scroll_time(state['speedY']), average_scroll_time(
+                state['accX']), average_scroll_time(state['accY'])
 
-                for index in range(len(state['speedX']) - 1):
-                    if state['time'][index + 1] != 0:
-                        state['accX'].append((state['speedX'][index + 1] - state['speedX'][index]) / state['time'][index + 1])
+            drag_speed_x_avg, drag_speed_y_avg, drag_acc_x_avg, drag_acc_y_avg = average_scroll_time(state['speedX']), average_scroll_time(state['speedY']), average_scroll_time(
+                state['accX']), average_scroll_time(state['accY'])
 
-                for index in range(len(state['speedY']) - 1):
-                    if state['time'][index + 1] != 0:
-                        state['accY'].append((state['speedY'][index + 1] - state['speedY'][index]) / state['time'][index + 1])
-
-            speed_x_avg = average_scroll_time(state['speedX'])
-            speed_y_avg = average_scroll_time(state['speedY'])
-            acc_x_avg = average_scroll_time(state['accX'])
-            acc_y_avg = average_scroll_time(state['accY'])
-
-            drag_speed_x_avg = average_scroll_time(state['speedX'])
-            drag_speed_y_avg = average_scroll_time(state['speedY'])
-            drag_acc_x_avg = average_scroll_time(state['accX'])
-            drag_acc_y_avg = average_scroll_time(state['accY'])
-            feature.append([time_diff, state['click'], time_diff, state['click'], right_click_frequency, state['right_time_elapsed'], right_single_click, right_double_click,
-                            left_click_frequency, state['left_time_elapsed'], left_single_click, left_double_click, average_scroll_time(state['scroll0_time_list']),
-                            average_scroll_time(state['scroll1_time_list']), average_scroll_time(state['scroll2_time_list']), speed_x_avg, speed_y_avg, acc_x_avg, acc_y_avg,
-                            drag_speed_x_avg, drag_speed_y_avg, drag_acc_x_avg, drag_acc_y_avg])
-            labels.append(label)
+            feature_function.append(
+                [time_diff, state['click'], time_diff, state['click'], right_click_frequency, state['right_time_elapsed'], right_single_click, right_double_click,
+                 left_click_frequency, state['left_time_elapsed'], left_single_click, left_double_click, average_scroll_time(state['scroll0_time_list']),
+                 average_scroll_time(state['scroll1_time_list']), average_scroll_time(state['scroll2_time_list']), speed_x_avg, speed_y_avg, acc_x_avg, acc_y_avg,
+                 drag_speed_x_avg, drag_speed_y_avg, drag_acc_x_avg, drag_acc_y_avg])
+            labels_function.append(label)
 
             state = get_new_state()
             count = 0
@@ -153,93 +128,47 @@ def feature_extractor(f_in, label, feature, labels, count):
         count += 1
 
 
-from sklearn.preprocessing import StandardScaler
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.model_selection import cross_val_score
-from sklearn.metrics import confusion_matrix, accuracy_score
-
-users = ["data/17EC35025"]
-contusers = ["data/17EC35025"]
-for user, contuser in zip(users, contusers):
-    sad_files = glob.glob(user + "/Emotional/Sad/*.txt")
-    for f in sad_files:
-        feature_extractor(f, 0, feature, labels, -6)
-
-    # neut_files=glob.glob(PATH+'/Neutral/*.txt')
-    neut_files = glob.glob(user + "/Neutral/*.txt")
-    for f in neut_files:
-        feature_extractor(f, 1, feature, labels, -6)
-
-    # happy_files=glob.glob(PATH+'/Emotional/Happy/*.txt')
-    happy_files = glob.glob(user + "/Emotional/Happy/*.txt")
-    for f in happy_files:
-        feature_extractor(f, 2, feature, labels, -6)
-
-    # cont_feature=[]
-    # cont_labels =[]
-    cont_files = glob.glob(contuser + '/*.txt')
-    for p, f in enumerate(sorted(cont_files)):
-        feature_extractor(f, 1 - p, cont_feature, cont_labels, -9)
-
-    print(user)
-
-# print(feature)
-# print(cont_feature)
-print(labels)
-print(cont_labels)
-# exit(0)
-
-sc = StandardScaler()
-feature = sc.fit_transform(feature)
-cont_feature = sc.fit_transform(cont_feature)
-
-# classifier = SVC(kernel='linear', random_state=0)
-classifier = KNeighborsClassifier(n_neighbors=3)
-scores = cross_val_score(classifier, feature, labels, cv=5)
-print("Accuracy in the Emotional and neutral data:")
-print(scores.mean())
-
-classifier.fit(feature, labels)
-y_pred = classifier.predict(cont_feature)
-
-cm = confusion_matrix(y_true=cont_labels, y_pred=y_pred)
-print(accuracy_score(y_true=cont_labels, y_pred=y_pred))
-
-target_names = ['sad', 'neutral', 'happy']
-
-# print cm
-
-# print "Accuracy score:"
-# print accuracy_score(cont_labels, y_pred)
+def extract_features():
+    global feature, cont_feature, labels, cont_labels
+    users = ["data/17EC35025"]
+    test_users = ["data/17EC35025"]
+    for user, test_user in zip(users, test_users):
+        sad_files = glob.glob(user + "/Emotional/Sad/*.txt")
+        for f in sad_files:
+            feature_extractor(f, 0, feature, labels, -6)
+        neut_files = glob.glob(user + "/Neutral/*.txt")
+        for f in neut_files:
+            feature_extractor(f, 1, feature, labels, -6)
+        happy_files = glob.glob(user + "/Emotional/Happy/*.txt")
+        for f in happy_files:
+            feature_extractor(f, 2, feature, labels, -6)
+        cont_files = glob.glob(test_user + '/*.txt')
+        for p, f in enumerate(sorted(cont_files)):
+            feature_extractor(f, 1 - p, cont_feature, cont_labels, -9)   # ---------------   BE CAUTION OF THIS LINE p VALUE ---------------
+        print(user)
 
 
-# exit(0)
+def train_test_model():
+    global feature, cont_feature, labels, cont_labels
+    sc = StandardScaler()
+    feature = sc.fit_transform(feature)
+    cont_feature = sc.fit_transform(cont_feature)
 
-print("For the continuous data number of instances for each mood are predicted as:")
-print(cm)
+    classifier = KNeighborsClassifier(n_neighbors=3)
+    scores = cross_val_score(classifier, feature, labels, cv=5)
+    print("Train Accuracy", end=' ')
+    print(scores.mean())
 
-# feature=[]
-# labels=[]
-# cont_feature=[]
-# cont_labels =[]
+    classifier.fit(feature, labels)
+    y_pred = classifier.predict(cont_feature)
+    cm = confusion_matrix(y_true=cont_labels, y_pred=y_pred)
+
+    print("Test Accuracy", end=' ')
+    print(accuracy_score(y_true=cont_labels, y_pred=y_pred))
+
+    print("For the continuous data number of instances for each mood are predicted as:")
+    print(cm)
 
 
-##############PCA####################
-import matplotlib.pyplot as plt
-
-from sklearn.decomposition import PCA
-
-pca = PCA(n_components=3)
-pca.fit(feature)
-X = pca.transform(feature)
-print(X.shape)
-
-x_cord = X[:, 0]
-y_cord = X[:, 1]
-z_cord = X[:, 2]
-
-colors = ['red', 'green', 'blue']
-fig = plt.figure()
-ax = fig.add_subplot(111, projection='3d')
-ax.scatter(x_cord, y_cord, z_cord, c=labels)  # , label=[0, 1, 2])
-plt.show()
+extract_features()
+train_test_model()
