@@ -29,18 +29,16 @@ def average_scroll_time(scroll_time_list):
 
 
 def get_new_state():
-    state_dict = {'list': [], 'click': 0, 'right_click': 0, 'left_click': 0, 'time_last': 0.0, 'left_time_elapsed': 0.0, 'right_time_elapsed': 0.0,
-                  'scroll0_count': 0.0, 'scroll0_time': 0.0, 'scroll1_count': 0.0, 'scroll1_time': 0.0, 'scroll2_count': 0.0, 'scroll2_time': 0.0,
-                  'scroll0_time_list': [], 'scroll1_time_list': [], 'scroll2_time_list': [], 'right_click_time': [], 'left_click_time': [], 'x_cod': [], 'y_cod': [],
-                  'drag_x_cod': [], 'drag_y_cod': [], 'time': [], 'drag_time': [], 'speedX': [], 'speedY': [], 'accX': [], 'accY': []}
-    return state_dict
+    return {'list': [], 'click': 0, 'right_click': 0, 'left_click': 0, 'time_last': 0.0, 'left_time_elapsed': 0.0, 'right_time_elapsed': 0.0,
+            'scroll0_count': 0.0, 'scroll0_time': 0.0, 'scroll1_count': 0.0, 'scroll1_time': 0.0, 'scroll2_count': 0.0, 'scroll2_time': 0.0,
+            'scroll0_time_list': [], 'scroll1_time_list': [], 'scroll2_time_list': [], 'right_click_time': [], 'left_click_time': [], 'x_cod': [], 'y_cod': [],
+            'drag_x_cod': [], 'drag_y_cod': [], 'time': [], 'drag_time': [], 'speedX': [], 'speedY': [], 'accX': [], 'accY': []}
 
 
 def feature_extractor(f_in, label, feature_function, labels_function, count):
     file = open(f_in, 'r')
     time_val = 0
     time_last = 0.0
-
     state = get_new_state()
 
     for line in file.readlines():
@@ -71,12 +69,8 @@ def feature_extractor(f_in, label, feature_function, labels_function, count):
             state['click'] += 1
         elif words[0] == 'MWM':
             def assign_scroll_count(param_count, param_time):
-                if state[param_count] == 0:
-                    state[param_time] += 0
-                    state[param_count] += 1
-                else:
-                    state[param_time] += int(words[6])
-                    state[param_count] += 1
+                state[param_time] += 0 if state[param_count] == 0 else int(words[6])
+                state[param_count] += 1
 
             if int(words[4]) == 0:
                 assign_scroll_count('scroll0_count', 'scroll0_time')
@@ -104,10 +98,8 @@ def feature_extractor(f_in, label, feature_function, labels_function, count):
 
             if len(state['time']) > 0:
                 state['time'][0] = 0
-                state['speedX'].extend([calculate_differential('x_cod', index) for index in range(len(state['x_cod']) - 1) if state['time'][index + 1] != 0])
-                state['speedY'].extend([calculate_differential('y_cod', index) for index in range(len(state['y_cod']) - 1) if state['time'][index + 1] != 0])
-                state['accX'].extend([calculate_differential('speedX', index) for index in range(len(state['speedX']) - 1) if state['time'][index + 1] != 0])
-                state['accY'].extend([calculate_differential('speedY', index) for index in range(len(state['speedY']) - 1) if state['time'][index + 1] != 0])
+                for val1, val2 in zip(['speedX', 'speedY', 'accX', 'accY'], ['x_cod', 'y_cod', 'speedX', 'speedY']):
+                    state[val1].extend([calculate_differential(val2, index) for index in range(len(state[val2]) - 1) if state['time'][index + 1] != 0])
 
             speed_x_avg, speed_y_avg, acc_x_avg, acc_y_avg = average_scroll_time(state['speedX']), average_scroll_time(state['speedY']), average_scroll_time(
                 state['accX']), average_scroll_time(state['accY'])
@@ -144,7 +136,7 @@ def extract_features():
             feature_extractor(f, 2, feature, labels, -6)
         cont_files = glob.glob(test_user + '/*.txt')
         for p, f in enumerate(sorted(cont_files)):
-            feature_extractor(f, 1 - p, cont_feature, cont_labels, -9)   # ---------------   BE CAUTION OF THIS LINE p VALUE ---------------
+            feature_extractor(f, 1 - p, cont_feature, cont_labels, -9)  # ---------------   BE CAUTION OF THIS LINE p VALUE ---------------
         print(user)
 
 
