@@ -7,7 +7,7 @@ from sklearn.model_selection import cross_val_score
 from sklearn.metrics import confusion_matrix, accuracy_score
 
 feature = []
-target_names = ['sad', 'neutral', 'happy']
+target_names = list()
 labels = []
 cont_feature = []
 cont_labels = []
@@ -122,36 +122,46 @@ def feature_extractor(f_in, label, feature_function, labels_function, count):
 
 def extract_features():
     global feature, cont_feature, labels, cont_labels
-    users = ["data/17EC35025"]
-    test_users = ["data/17EC35025"]
-    for user, test_user in zip(users, test_users):
-        sad_files = glob.glob(user + "/Emotional/Sad/*.txt")
-        for f in sad_files:
-            feature_extractor(f, 0, feature, labels, -6)
-        neut_files = glob.glob(user + "/Neutral/*.txt")
-        for f in neut_files:
-            feature_extractor(f, 1, feature, labels, -6)
-        happy_files = glob.glob(user + "/Emotional/Happy/*.txt")
-        for f in happy_files:
-            feature_extractor(f, 2, feature, labels, -6)
-        cont_files = glob.glob(test_user + '/*.txt')
-        for p, f in enumerate(sorted(cont_files)):
-            feature_extractor(f, 1 - p, cont_feature, cont_labels, -9)  # ---------------   BE CAUTION OF THIS LINE p VALUE ---------------
-        print(user)
+    # users = ["data/17EC35025"]
+    # test_users = ["data/17EC35025"]
+    # for user, test_user in zip(users, test_users):
+    #     sad_files = glob.glob(user + "/Emotional/Sad/*.txt")
+    #     for f in sad_files:
+    #         feature_extractor(f, 0, feature, labels, -6)
+    #     neut_files = glob.glob(user + "/Neutral/*.txt")
+    #     for f in neut_files:
+    #         feature_extractor(f, 1, feature, labels, -6)
+    #     happy_files = glob.glob(user + "/Emotional/Happy/*.txt")
+    #     for f in happy_files:
+    #         feature_extractor(f, 2, feature, labels, -6)
+    #     cont_files = glob.glob(test_user + '/*.txt')
+    #     for p, f in enumerate(sorted(cont_files)):
+    #         feature_extractor(f, 1 - p, cont_feature, cont_labels, -9)  # ---------------   BE CAUTION OF THIS LINE p VALUE ---------------
+    #     print(user)
+
+    folders = list(glob.glob('data/*'))
+    for label_no, folder in enumerate(folders):
+        files = glob.glob(folder+'/*')
+        target_names.append(list(str(folder).split('\\'))[1])
+        print(folder)
+        for file in files[:-1]:
+            feature_extractor(file, label_no, feature, labels, -9)
+        feature_extractor(files[-1], label_no, cont_feature, cont_labels, -9)
 
 
-def train_test_model():
+def train_test_model(neighbour_count=3):
     global feature, cont_feature, labels, cont_labels
+
     sc = StandardScaler()
     feature = sc.fit_transform(feature)
     cont_feature = sc.fit_transform(cont_feature)
 
-    classifier = KNeighborsClassifier(n_neighbors=3)
+    classifier = KNeighborsClassifier(n_neighbors=neighbour_count)
     scores = cross_val_score(classifier, feature, labels, cv=5)
     print("Train Accuracy", end=' ')
     print(scores.mean())
 
-    classifier.fit(feature, labels)
+    classifier.fit(np.array(feature), labels)
     y_pred = classifier.predict(cont_feature)
     cm = confusion_matrix(y_true=cont_labels, y_pred=y_pred)
 
@@ -163,4 +173,6 @@ def train_test_model():
 
 
 extract_features()
-train_test_model()
+train_test_model(neighbour_count=3)
+train_test_model(neighbour_count=4)
+train_test_model(neighbour_count=5)
